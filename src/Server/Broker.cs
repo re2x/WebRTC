@@ -41,9 +41,9 @@ namespace YourNamespace
         {
             Connections = new List<IPeerConnection>(); 
 
-            this.OnClose += _OnClose;            
+            this.OnClientDisConnect += _OnClose;            
 
-            this.OnOpen += _OnOpen;            
+            this.OnClientConnect += _OnOpen;            
         }
 
         #endregion
@@ -60,7 +60,11 @@ namespace YourNamespace
             {
                 Context = Guid.NewGuid(),
                 PeerId = ClientGuid
-            };
+            };            
+        }
+
+        public void GetContext()
+        {
             this.Send(Peer, Events.Context.Created);
         }
 
