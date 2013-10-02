@@ -387,7 +387,6 @@ XSockets.WebRTC = function (ws, settings) {
         if (fn) fn(id);
     };
 
-
     this.addLocalStream = function (stream, cb) {
         var index = localStreams.push(stream);
         // Check it there is PeerConnections 
@@ -534,7 +533,6 @@ XSockets.WebRTC = function (ws, settings) {
 
     self.bind("connect", function (peer) {
 
-        self.PeerConnections[peer.PeerId] = new rtcPeerConnection(options, peer.PeerId);
         createOffer(peer);
     });
     self.bind("candidate", function (event) {
@@ -581,6 +579,9 @@ XSockets.WebRTC = function (ws, settings) {
     ws.subscribe("contextcreated", function (context) {
         self.CurrentContext = new XSockets.PeerContext(context.PeerId, context.Context);
         self.dispatch(XSockets.WebRTC.Events.onContextCreated, context);
+        
+    },function() {
+        ws.publish('GetContext');
     });
     ws.subscribe("contextsignal", function (signal) {
         var msg = JSON.parse(signal.Message);
