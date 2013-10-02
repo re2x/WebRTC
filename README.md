@@ -142,7 +142,7 @@ To remove a local media stream from the PeerConnection and all connected remote 
 When a media stream is added by using the .getUserMedia or .addMediaStream event you need to call refreshStreams method to initialize a renegotiation.
 
     rtc.refreshStreams(peerId, function (id) {
-        console.log("Streams regreshed and renegotiation is done..");
+        console.log("Streams refreshed and renegotiation is done..");
     });
 
 ** to get a list of all remote peerconnections call the .`getRemotePeers()` method.
@@ -156,11 +156,11 @@ To get a list of the peerconnection (clients ) media-streams call the `.getLocal
 ###MediaStream Events
 #### onLocalStream(event)
 
-When a media stream is attach to the PeerConnection using `getUserMedia` och `addMediaStream` the API fires the `onLocalStream(stream)` event.
+When a media stream is attached to the PeerConnection using `getUserMedia` och `addMediaStream` the API fires the `onLocalStream(stream)` event.
 
     rtc.bind(XSockets.WebRTC.Events.onLocalStream, function(stream) {
     
-    // attach the stream to you <video> element or create a new <video> as you can add multiple streams to a PeerConnection
+    // attach the stream to your <video> element or create a new <video> as you can add multiple streams to a PeerConnection
     
     });
 
