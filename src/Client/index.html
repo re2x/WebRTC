@@ -1,0 +1,172 @@
+﻿<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <title></title>
+    <script src="/Client/Scripts/jquery-1.9.1.js"></script>
+    <script src="/Client/Scripts/XSockets.latest.min.js"></script>
+    <script src="/Client/Scripts/XSockets.WebRTC.latest.js"></script>
+     <script>
+
+         var peerBroker, rtc;
+
+         //Fires when the connection of opened
+         var onContextCreated = function(brokerContext) {
+             console.log("BrokerContext", brokerContext);
+         };
+
+         var onLocalStreamCreated = function(stream) {
+             console.log("A Stream was added, i will soon pop up..", stream);
+         };
+
+         //Do this when we get a local stream
+         var onLocalStream = function(stream) {
+             var video = $("<video>").attr({
+                 autoplay: "autoplay", id: stream.id
+
+             }).bind("click", { streamId: stream.id }, function (args) {
+                 rtc.removeStream(args.data.streamId, function(id) {
+                     console.log("Local stream removed", id);
+                 });
+                 $(this).remove();
+             }).prependTo("#local");
+             attachMediaStream($(video).get(0), stream);
+         };
+         
+         //Do this when we get a remote stream
+         var onRemoteStream = function (event) {
+             // First, remove prior videos belonging to this Peer
+             $("video[rel='" + event.stream.id + "']").remove();
+             var video = $("<video>").attr({
+                 autoplay: "autoplay", id: event.PeerId,
+                 rel: event.stream.id
+             }).bind("click", { streamId: event.stream.id }, function (args) {
+
+                 // okey, a click on a remote video, lets disconnect
+                 rtc.removePeerConnection(event.PeerId);
+             }).prependTo("#remote");
+             attachMediaStream($(video).get(0), event.stream);
+
+         };
+
+         //When a connection is lost, remove it from the DOM
+         var onPeerConnectionLost = function(peerConnection) {
+             console.log("Lost a peer connection", peerConnection);
+             $("[id='" + peerConnection.PeerId + "']").remove();
+         };
+
+         //When a remote peer removes a local stream
+         var onRemoteStreamLost = function(stream) {
+             console.log("Lost a remote stream", stream);
+             $("[rel='" + stream.StreamId + "']").remove();
+         };
+
+         var onPeerConnectionStarted = function(peerConnection) {
+             console.log("PeerConnection Started", peerConnection);
+         };
+
+         var onContextChange = function(context) {
+             // You will recive a list of Peers on the current context
+             console.log("Context changed", context);
+         };
+
+         //Doc Ready
+         $(function () {             
+
+             var sdpFilters = [];
+
+             //No need for this... Just showing how you can set contraints 
+             sdpFilters.push(
+                function (sdp) { // Limit the bandwith for each peer to 256 kilobits / sec
+                    return sdp.replace(/a=mid:video\r\n/g,
+                        'a=mid:video\r\nb=AS:50\r\n');
+                }
+            );
+
+             peerBroker = new XSockets.WebSocket("ws://127.0.0.1:4502/Broker");
+
+             //When XSockets is connected setup WebRTC
+             peerBroker.on(XSockets.Events.open, function (brokerClient) {
+                 console.log("brokerClient", brokerClient);
+
+                 //Pass the XSockets connnection to the WebRTC instance
+                 rtc = new XSockets.WebRTC(peerBroker,
+                     {
+                         sdpExpressions: sdpFilters
+                     });
+
+                 ////////////////////////
+                 // BIND TO EVENTS
+                 ////////////////////////
+                 
+                 //Fires when the connection is opened
+                 rtc.bind(XSockets.WebRTC.Events.onContextCreated, onContextCreated);
+
+                 // This event will fire when a localStream is added 
+                 rtc.bind(XSockets.WebRTC.Events.onlocalStream, onLocalStream);
+
+
+                 // fire when a remote Peer adds a stream
+                 rtc.bind(XSockets.WebRTC.Events.onLocalStreamCreated, onLocalStreamCreated);
+
+                 // This event will fire when a remoteStream is added to one of the connected Peer's
+                 rtc.bind(XSockets.WebRTC.Events.onRemoteStream, onRemoteStream);
+
+                 // When a client disconnects from the broker & context, this event will fire
+                 rtc.bind(XSockets.WebRTC.Events.onPeerConnectionLost, onPeerConnectionLost);
+
+                 // When a remote peer removes a "localStream", this event will fire..
+                 rtc.bind(XSockets.WebRTC.Events.onRemoteStreamLost, onRemoteStreamLost);
+                 
+                 // Fires when a new peerconnction is initialized
+                 rtc.bind(XSockets.WebRTC.Events.onPeerConnectionStarted, onPeerConnectionStarted);
+
+                 // This event fires when there is a change on the current context, some one "enters"
+                 // or disapeers?
+                 rtc.bind(XSockets.WebRTC.Events.onContextChange, onContextChange);
+
+                 ////////////////////////
+                 // GET USERMEDIA
+                 ////////////////////////
+
+                 // Get a MediaStream using QVGA and no audio... When done, change context...
+                 rtc.getUserMedia(rtc.userMediaConstraints.qvga(false), function () {
+                     //Just a fake context to get all clients connected to the same context directly
+                     rtc.changeContext("ee58a08bf68043539ef41d7c0ed0c553");                  
+                 });
+
+
+                 //Add another stream for each click :)
+                 $("#addStream").on("click", function (evt) {
+                     var that = $(this);
+                     window.getUserMedia(rtc.userMediaConstraints.qvga(false), function (stream) {
+                         // Add the MediaStream captured
+                         rtc.addLocalStream(stream, function () {
+                             that.children("span").text(rtc.getLocalStreams().length);
+                             
+                             // as we added a new MediaStreams,  get the RemotePeers connected
+                             // and refresh streams on those,,
+                             rtc.getRemotePeers().forEach(function (peer) {                                 
+                                 // refresh and reconnect peers
+                                 rtc.refreshStreams(peer, function (id) {
+                                 });
+                             });
+
+                         });
+                     });
+                 });
+             });
+
+
+         });
+
+
+    </script>
+</head>
+    <body>
+        <button id="addStream">Add stream (<span>1</span>)</button>
+        <hr/>
+        <div id="local"></div>
+        <hr/>
+        <div id="remote"></div>
+    </body>
+</html>
